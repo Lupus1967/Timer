@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interaktiver Timer</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #000; /* Dunkler Hintergrund */
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #original-duration {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    #timer {
+      font-size: 50vh; /* 50% der Browserhöhe */
+      font-weight: bold;
+      border: 2px solid rgba(255, 255, 255, 0.8); /* Dünne weiße Umrandung */
+      padding: 0.1em 0.25em; /* Halbierter Abstand zwischen Text und Umrandung */
+      border-radius: 15px; /* Abgerundete Ecken */
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.5); /* Leichter Schatteneffekt */
+      transition: color 0.5s linear, transform 0.5s ease; /* Sanfte Animation */
+    }
+    #timer.resetting {
+      transform: scale(0.7); /* Verkleinerung beim Zurücksetzen */
+    }
+    #timer-input {
+      margin-top: 1rem;
+    }
+    #start-btn {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1.2rem;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #start-btn:hover {
+      background-color: #0056b3;
+    }
+    #instructions {
+      position: absolute;
+      bottom: 10px;
+      font-size: 2vh; /* Schriftgröße passt sich der Fensterhöhe an */
+      color: #777; /* Mittelgrau */
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="original-duration" class="hidden">Timer: <span id="duration-display"></span></div>
+  <div id="timer">00:00</div>
+  <div id="timer-input">
+    <label for="minutes">Minuten:</label>
+    <input type="number" id="minutes" min="0" value="10">
+    <label for="seconds">Sekunden:</label>
+    <input type="number" id="seconds" min="0" max="59" value="0">
+    <button id="start-btn">Starten</button>
+  </div>
+  <audio id="beep-sound-short">
+    <source src="https://www.soundjay.com/button/beep-07.wav" type="audio/wav">
+  </audio>
+  <audio id="beep-sound-long">
+    <source src="https://www.soundjay.com/button/beep-10.wav" type="audio/wav">
+  </audio>
+  <div id="instructions">Leertaste = Pause; Enter = Neustart; ESC = Abbruch</div>
+  <script>
+    const timerElement = document.getElementById('timer');
+    const originalDurationElement = document.getElementById('original-duration');
+    const durationDisplay = document.getElementById('duration-display');
+    const startButton = document.getElementById('start-btn');
+    const minutesInput = document.getElementById('minutes');
+    const secondsInput = document.getElementById('seconds');
+    const timerInputContainer = document.getElementById('timer-input');
+    const beepSoundShort = document.getElementById('beep-sound-short');
+    const beepSoundLong = document.getElementById('beep-sound-long');
+
+    let timerInterval;
+    let blinkInterval;
+    let remainingTime = 0;
+    let isPaused = false;
+    let originalTime = 0;
+
+    /** Setzt die gesamte Oberfläche zurück */
+    function resetUI() {
+      clearInterval(timerInterval);
+      clearInterval(blinkInterval);
+      isPaused = false;
+      remainingTime = 0;
+      timerElement.style.visibility = 'visible';
+      timerElement.textContent = '00:00';
+      timerElement.style.color = '#fff'; // Farbe zurücksetzen
+      originalDurationElement.classList.add('hidden');
+      timerInputContainer.classList.remove('hidden');
+    }
+
+    /** Startet den Timer */
+    function startCountdown(durationInSeconds) {
+      clearInterval(timerInterval);
+      clearInterval(blinkInterval);
+
+      remainingTime = durationInSeconds;
+      originalTime = durationInSeconds;
+
+      timerInputContainer.classList.add('hidden');
+
+      const originalMinutes = Math.floor(originalTime / 60).toString().padStart(2, '0');
+      const originalSeconds = (originalTime % 60).toString().padStart(2, '0');
+      durationDisplay.textContent = `${originalMinutes}:${originalSeconds}`;
+      originalDurationElement.classList.remove('hidden');
+
+      function updateTimerDisplay() {
+        const minutes = Math.floor(remainingTime / 60).toString().padStart(2, '0');
+        const seconds = (remainingTime % 60).toString().padStart(2, '0');
+        timerElement.textContent = `${minutes}:${seconds}`;
+      }
+
+      function updateColor() {
+        const timeInSeconds = originalTime - remainingTime;
+        const fraction = (timeInSeconds % 60) / 60;
+        const r = Math.floor(255 * Math.sin(2 * Math.PI * fraction));
+        const g = Math.floor(255 * Math.sin(2 * Math.PI * fraction + 2 * Math.PI / 3));
+        const b = Math.floor(255 * Math.sin(2 * Math.PI * fraction + 4 * Math.PI / 3));
+        timerElement.style.color = `rgb(${r}, ${g}, ${b})`;
+      }
+
+      function startBlinking() {
+        blinkInterval = setInterval(() => {
+          if (remainingTime <= 30 && !isPaused) {
+            timerElement.style.visibility =
+              timerElement.style.visibility === 'hidden' ? 'visible' : 'hidden';
+          } else {
+            timerElement.style.visibility = 'visible';
+          }
+        }, 250);
+      }
+
+      timerInterval = setInterval(() => {
+        if (!isPaused) {
+          if (remainingTime === 0) {
+            timerElement.textContent = "00:00";
+            beepSoundLong.play();
+            clearInterval(timerInterval);
+            clearInterval(blinkInterval);
+            timerElement.style.visibility = 'visible';
+            return;
+          }
+          if (remainingTime % 60 === 0 && remainingTime > 0) {
+            beepSoundShort.play();
+          }
+          updateColor();
+          updateTimerDisplay();
+          remainingTime--;
+        }
+      }, 1000);
+
+      startBlinking();
+      updateTimerDisplay();
+    }
+
+    /** Startet den Timer basierend auf der Nutzereingabe */
+    function handleStart() {
+      const minutes = parseInt(minutesInput.value, 10) || 0;
+      const seconds = parseInt(secondsInput.value, 10) || 0;
+      const totalSeconds = minutes * 60 + seconds;
+
+      if (totalSeconds > 0) {
+        startCountdown(totalSeconds);
+      } else {
+        alert('Bitte eine gültige Zeit eingeben!');
+      }
+    }
+
+    /** Zeigt die Animation für das Zurücksetzen */
+    function resetTimerAnimation() {
+      timerElement.classList.add('resetting');
+      setTimeout(() => {
+        timerElement.classList.remove('resetting');
+      }, 500);
+    }
+
+    startButton.addEventListener('click', () => {
+      resetTimerAnimation();
+      handleStart();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === ' ') {
+        event.preventDefault();
+        isPaused = !isPaused;
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        resetTimerAnimation();
+        if (timerInputContainer.classList.contains('hidden')) {
+          startCountdown(originalTime);
+        } else {
+          handleStart();
+        }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        resetTimerAnimation();
+        resetUI();
+      }
+    });
+  </script>
+</body>
+</html>
