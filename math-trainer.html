@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kopfrechentrainer</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #222;
+      color: #fff;
+      text-align: center;
+    }
+    #setup {
+      margin-bottom: 1rem;
+    }
+    #question {
+      font-size: 3rem;
+      margin: 1rem 0;
+    }
+    #answer {
+      font-size: 2rem;
+      text-align: center;
+      width: 6rem;
+    }
+    #feedback {
+      height: 2rem;
+      margin-top: 0.5rem;
+    }
+    #score {
+      margin-top: 1rem;
+    }
+    button {
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+      margin: 0.5rem;
+      cursor: pointer;
+    }
+    @media (max-width: 600px) {
+      #question {
+        font-size: 2rem;
+      }
+      #answer {
+        width: 4rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="setup">
+    <label for="operation">Rechenart:</label>
+    <select id="operation">
+      <option value="add">Addition</option>
+      <option value="sub">Subtraktion</option>
+      <option value="mul">Multiplikation</option>
+      <option value="div">Division</option>
+      <option value="mix">Gemischt</option>
+    </select>
+    <label for="max">Max&nbsp;Zahl:</label>
+    <input type="number" id="max" min="10" max="1000" value="100">
+    <button id="start">Start</button>
+  </div>
+
+  <div id="trainer" style="display:none;">
+    <div id="question"></div>
+    <input id="answer" type="number" autocomplete="off">
+    <div id="feedback"></div>
+    <button id="next">Nächste Aufgabe</button>
+    <div id="score">Punkte: <span id="points">0</span></div>
+  </div>
+
+  <audio id="sound-correct">
+    <source src="https://www.soundjay.com/buttons/sounds/button-09.mp3" type="audio/mp3">
+  </audio>
+  <audio id="sound-wrong">
+    <source src="https://www.soundjay.com/buttons/sounds/button-10.mp3" type="audio/mp3">
+  </audio>
+
+  <script>
+    const operationSelect = document.getElementById('operation');
+    const maxInput = document.getElementById('max');
+    const startBtn = document.getElementById('start');
+    const trainer = document.getElementById('trainer');
+    const questionEl = document.getElementById('question');
+    const answerInput = document.getElementById('answer');
+    const feedbackEl = document.getElementById('feedback');
+    const nextBtn = document.getElementById('next');
+    const pointsEl = document.getElementById('points');
+    const soundCorrect = document.getElementById('sound-correct');
+    const soundWrong = document.getElementById('sound-wrong');
+
+    let currentAnswer = 0;
+    let points = 0;
+
+    function randomNumber(max) {
+      return Math.floor(Math.random() * max) + 1;
+    }
+
+    function generateQuestion() {
+      const max = parseInt(maxInput.value, 10) || 10;
+      let a = randomNumber(max);
+      let b = randomNumber(max);
+      let op = operationSelect.value;
+      if (op === 'mix') {
+        const ops = ['add','sub','mul','div'];
+        op = ops[Math.floor(Math.random() * ops.length)];
+      }
+      if (op === 'div') {
+        // ensure divisible
+        b = randomNumber(max);
+        a = b * randomNumber(Math.floor(max / b));
+      }
+
+      let symbol = '+';
+      switch(op) {
+        case 'add':
+          currentAnswer = a + b;
+          symbol = '+';
+          break;
+        case 'sub':
+          if (a < b) [a, b] = [b, a];
+          currentAnswer = a - b;
+          symbol = '-';
+          break;
+        case 'mul':
+          currentAnswer = a * b;
+          symbol = '×';
+          break;
+        case 'div':
+          currentAnswer = a / b;
+          symbol = '÷';
+          break;
+      }
+      questionEl.textContent = `${a} ${symbol} ${b} = ?`;
+      feedbackEl.textContent = '';
+      answerInput.value = '';
+      answerInput.focus();
+    }
+
+    function checkAnswer() {
+      const given = parseInt(answerInput.value, 10);
+      if (given === currentAnswer) {
+        feedbackEl.textContent = 'Richtig!';
+        feedbackEl.style.color = 'lightgreen';
+        points++;
+        soundCorrect.play();
+      } else {
+        feedbackEl.textContent = `Falsch. Richtige Antwort: ${currentAnswer}`;
+        feedbackEl.style.color = 'orange';
+        soundWrong.play();
+      }
+      pointsEl.textContent = points;
+    }
+
+    startBtn.addEventListener('click', () => {
+      trainer.style.display = 'block';
+      generateQuestion();
+    });
+
+    nextBtn.addEventListener('click', () => {
+      checkAnswer();
+      generateQuestion();
+    });
+
+    answerInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        checkAnswer();
+        generateQuestion();
+      }
+    });
+  </script>
+</body>
+</html>
